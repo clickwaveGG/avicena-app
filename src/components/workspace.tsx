@@ -1,7 +1,26 @@
 "use client";
 
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import {
+  Plus,
+  MessageSquare,
+  Search,
+  Send,
+  User,
+  Stethoscope,
+  BookOpen,
+  Dna,
+  Heart,
+  MoreVertical,
+  Sidebar as SidebarIcon,
+  Sparkles,
+  ArrowUp,
+  Paperclip,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import Markdown from "react-markdown";
+import { cn } from "@/lib/utils";
 import { signOut } from "@/app/actions/auth";
 
 type Profile = {
@@ -9,13 +28,46 @@ type Profile = {
   tier: string | null;
 };
 
-type Msg = { role: "user" | "bot"; text: string };
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+}
 
-const QUICK_CARDS = [
-  { cmd: "/resumir ", text: "Resumir um capítulo do códice" },
-  { cmd: "/explicar ", text: "Explicar conceito complexo em PT-BR direto" },
-  { cmd: "/quizar ", text: "Gerar quiz de revisão pra prova" },
-  { cmd: "/caso ", text: "Montar caso clínico simulado" },
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: number;
+}
+
+async function sendMessage(_messages: Message[]): Promise<string> {
+  await new Promise((r) => setTimeout(r, 900));
+  return "O Hipócrates ainda tá afiando o bisturi. Sobe o teu primeiro códice quando o upload abrir (Sprint 1.3) e a gente já consulta com página citada.";
+}
+
+const SUGGESTED_PROMPTS = [
+  {
+    title: "Análise de Caso",
+    description: "Ajude-me a analisar um estudo de caso clínico de neurologia.",
+    icon: <Stethoscope className="w-5 h-5 text-clinic-600" />,
+  },
+  {
+    title: "Fisiologia",
+    description: "Explique a cascata de coagulação sanguineo de forma clara.",
+    icon: <Dna className="w-5 h-5 text-clinic-600" />,
+  },
+  {
+    title: "Farmacologia",
+    description: "Quais as principais interações medicamentosas da varfarina?",
+    icon: <BookOpen className="w-5 h-5 text-clinic-600" />,
+  },
+  {
+    title: "Anatomia",
+    description: "Revise a anatomia do mediastino superior.",
+    icon: <Heart className="w-5 h-5 text-clinic-600" />,
+  },
 ];
 
 export function Workspace({
@@ -25,228 +77,398 @@ export function Workspace({
   email: string;
   profile: Profile | null;
 }) {
-  const [val, setVal] = useState("");
-  const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [typing, setTyping] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [input, setInput] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const displayName =
-    profile?.display_name?.trim() ||
-    email?.split("@")[0] ||
-    "estudante";
-  const initial = displayName.charAt(0).toUpperCase();
+    profile?.display_name?.trim() || email?.split("@")[0] || "estudante";
   const tier = profile?.tier ?? "estagiario";
 
-  function autoResize(t: HTMLTextAreaElement) {
-    t.style.height = "24px";
-    t.style.height = Math.min(t.scrollHeight, 200) + "px";
-  }
-
-  function send(text: string) {
-    const v = text.trim();
-    if (!v) return;
-    setMsgs((prev) => [...prev, { role: "user", text: v }]);
-    setVal("");
-    if (taRef.current) {
-      taRef.current.value = "";
-      autoResize(taRef.current);
-    }
-    setTyping(true);
-    setTimeout(() => {
-      setTyping(false);
-      setMsgs((prev) => [
-        ...prev,
-        {
-          role: "bot",
-          text:
-            "O Hipócrates ainda tá afiando o bisturi. Sobe o teu primeiro códice quando o upload abrir (Sprint 1.3) e a gente já consulta com página citada.",
-        },
-      ]);
-    }, 1100);
-  }
-
-  function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send(val);
-    }
-  }
+  const currentSession = sessions.find((s) => s.id === currentSessionId);
 
   useEffect(() => {
-    if (taRef.current) autoResize(taRef.current);
-  }, []);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [currentSession?.messages, isLoading]);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [msgs.length, typing]);
+  const createNewSession = () => {
+    const newSession: ChatSession = {
+      id: Math.random().toString(36).substring(7),
+      title: "Nova Conversa",
+      messages: [],
+      createdAt: Date.now(),
+    };
+    setSessions([newSession, ...sessions]);
+    setCurrentSessionId(newSession.id);
+  };
+
+  const handleSend = async (content: string) => {
+    if (!content.trim() || isLoading) return;
+
+    let sessionId = currentSessionId;
+    let updatedSessions = [...sessions];
+
+    if (!sessionId) {
+      const newSession: ChatSession = {
+        id: Math.random().toString(36).substring(7),
+        title: content.slice(0, 30) + (content.length > 30 ? "..." : ""),
+        messages: [],
+        createdAt: Date.now(),
+      };
+      updatedSessions = [newSession, ...sessions];
+      sessionId = newSession.id;
+      setSessions(updatedSessions);
+      setCurrentSessionId(sessionId);
+    }
+
+    const userMessage: Message = {
+      id: Math.random().toString(36).substring(7),
+      role: "user",
+      content,
+      timestamp: Date.now(),
+    };
+
+    const sessionIndex = updatedSessions.findIndex((s) => s.id === sessionId);
+    updatedSessions[sessionIndex].messages.push(userMessage);
+
+    if (
+      updatedSessions[sessionIndex].messages.filter((m) => m.role === "user")
+        .length === 1
+    ) {
+      updatedSessions[sessionIndex].title =
+        content.slice(0, 30) + (content.length > 30 ? "..." : "");
+    }
+
+    setSessions([...updatedSessions]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const aiResponseContent = await sendMessage(
+        updatedSessions[sessionIndex].messages
+      );
+
+      const assistantMessage: Message = {
+        id: Math.random().toString(36).substring(7),
+        role: "assistant",
+        content: aiResponseContent,
+        timestamp: Date.now(),
+      };
+
+      updatedSessions[sessionIndex].messages.push(assistantMessage);
+      setSessions([...updatedSessions]);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="ws-shell">
-      <aside className="ws-sidebar">
-        <div className="ws-sidebar-header">
-          <Image
-            src="/assets/codex-logo-pixel.png"
-            alt="Avicena"
-            width={32}
-            height={32}
-            priority
+    <div className="flex h-screen bg-white">
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {!isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/20 z-20 md:hidden"
+            onClick={() => setIsSidebarOpen(true)}
           />
-          <span>Avicena</span>
-        </div>
+        )}
+      </AnimatePresence>
 
-        <button className="ws-new-btn" disabled title="Upload chega no Sprint 1.3">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>Subir códice</span>
-        </button>
-
-        <div className="ws-section-title">Códices</div>
-        <div className="ws-list">
-          <div className="ws-list-empty">Sem códices ainda.</div>
-        </div>
-
-        <div className="ws-section-title">Histórico</div>
-        <div className="ws-list">
-          <div className="ws-list-empty">Sem consultas.</div>
-        </div>
-
-        <div className="ws-sidebar-footer">
-          <div className="ws-user">
-            <div className="ws-avatar">{initial}</div>
-            <div className="ws-user-meta">
-              <div className="ws-user-name">{displayName}</div>
-              <div className="ws-user-tier">{tier}</div>
-            </div>
-          </div>
-          <form action={signOut}>
-            <button type="submit" className="ws-signout">
-              Sair
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      <main className="ws-main">
-        <div className="ws-mobile-bar">
-          <div className="ws-mobile-brand">
+      {/* Sidebar */}
+      <div
+        className={cn(
+          "fixed md:relative flex flex-col h-full bg-[#f9f9f9] border-r border-slate-100 transition-all duration-300 z-30",
+          isSidebarOpen
+            ? "w-[260px] translate-x-0"
+            : "-translate-x-full md:w-0 md:translate-x-0 md:hidden"
+        )}
+      >
+        <div className="p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 px-2 py-1">
             <Image
               src="/assets/codex-logo-pixel.png"
               alt="Avicena"
-              width={30}
-              height={30}
+              width={32}
+              height={32}
+              priority
+              className="rounded-lg"
             />
-            <span>Avicena</span>
+            <span className="font-bold text-slate-800 tracking-tight">
+              Avicena
+            </span>
           </div>
-          <form action={signOut}>
-            <button type="submit" className="ws-signout">
-              Sair
-            </button>
-          </form>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors"
+          >
+            <SidebarIcon className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="ws-conversation" ref={scrollRef}>
-          {msgs.length === 0 && !typing ? (
-            <div className="ws-empty">
-              <div className="ws-empty-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                </svg>
-                <span>Consultório aberto</span>
-              </div>
-              <h1>
-                Bem-vindo,{" "}
-                <span className="accent">{displayName}</span>
-              </h1>
-              <p>
-                Sobe teu códice (PDF) e o Hipócrates ausculta. Por enquanto a
-                gente tá montando o consultório — manda uma anamnese pra ver
-                como vai funcionar.
-              </p>
+        <div className="px-3 pb-2">
+          <button
+            onClick={createNewSession}
+            className="w-full flex items-center gap-2 p-3 text-sm font-medium text-slate-700 hover:bg-slate-200/50 rounded-xl transition-all border border-transparent hover:border-slate-200"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Conversa
+          </button>
+        </div>
 
-              <div className="ws-quick-grid">
-                {QUICK_CARDS.map((q) => (
-                  <button
-                    key={q.cmd}
-                    className="ws-quick-card"
-                    onClick={() => {
-                      setVal(q.cmd);
-                      taRef.current?.focus();
-                    }}
-                  >
-                    <span className="ws-quick-card-cmd">{q.cmd.trim()}</span>
-                    <span className="ws-quick-card-text">{q.text}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="ws-messages">
-              {msgs.map((m, i) => (
-                <div key={i} className={`ws-msg ${m.role}`}>
-                  {m.text}
-                </div>
-              ))}
-              {typing && (
-                <div className="ws-msg bot">
-                  <span style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>
-                    Auscultando o compêndio
-                  </span>
-                  <span className="typing-dots" style={{ marginLeft: 8 }}>
-                    <span></span><span></span><span></span>
-                  </span>
-                </div>
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 custom-scrollbar">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-2">
+            Recentes
+          </div>
+          {sessions.map((session) => (
+            <button
+              key={session.id}
+              onClick={() => setCurrentSessionId(session.id)}
+              className={cn(
+                "w-full flex items-center gap-3 p-3 text-sm rounded-xl transition-all text-left",
+                currentSessionId === session.id
+                  ? "bg-clinic-100 text-clinic-900 font-medium"
+                  : "text-slate-600 hover:bg-slate-200/50 group"
               )}
+            >
+              <MessageSquare
+                className={cn(
+                  "w-4 h-4 shrink-0",
+                  currentSessionId === session.id
+                    ? "text-clinic-600"
+                    : "text-slate-400"
+                )}
+              />
+              <span className="truncate flex-1">{session.title}</span>
+              <MoreVertical className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+            </button>
+          ))}
+
+          {sessions.length === 0 && (
+            <div className="px-3 py-4 text-sm text-slate-400 italic">
+              Nenhuma conversa ainda
             </div>
           )}
         </div>
 
-        <div className="ws-composer-wrap">
-          <div className="ws-composer">
-            <div className="ws-composer-body">
-              <textarea
-                ref={taRef}
-                className="ws-composer-textarea"
-                placeholder="Manda tua anamnese... Ex: /resumir capítulo 4"
-                rows={1}
-                value={val}
-                onChange={(e) => {
-                  setVal(e.target.value);
-                  autoResize(e.target);
-                }}
-                onKeyDown={onKey}
-              />
+        <div className="mt-auto p-3 border-t border-slate-100 space-y-2">
+          <div className="flex items-center gap-3 p-2 rounded-xl text-slate-600">
+            <div className="w-8 h-8 rounded-full bg-clinic-50 flex items-center justify-center">
+              <User className="w-4 h-4 text-clinic-600" />
             </div>
-            <div className="ws-composer-footer">
-              <div className="chat-tools">
-                <button className="tool-btn" disabled title="Upload chega no Sprint 1.3">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                </button>
-              </div>
-              <button
-                className={`btn-send${val.trim() ? " active" : ""}`}
-                onClick={() => send(val)}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-                <span>Consultar</span>
-              </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{displayName}</p>
+              <p className="text-[10px] text-slate-400 capitalize">{tier}</p>
             </div>
           </div>
-          <p className="ws-composer-fineprint">
-            Material de estudo. Não substitui avaliação clínica presencial.
-          </p>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="w-full text-xs text-slate-500 hover:text-slate-800 py-1.5 rounded-lg hover:bg-slate-200/50 transition-colors"
+            >
+              Sair
+            </button>
+          </form>
         </div>
-      </main>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
+        {/* Header */}
+        <header className="h-16 flex items-center justify-between px-4 sticky top-0 bg-white/80 backdrop-blur-md z-10">
+          <div className="flex items-center gap-2">
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+              >
+                <SidebarIcon className="w-5 h-5" />
+              </button>
+            )}
+            <h2 className="font-semibold text-slate-700 md:block hidden">
+              {currentSession ? currentSession.title : "Início"}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-clinic-50 text-clinic-700 rounded-full text-xs font-medium border border-clinic-100">
+              <Sparkles className="w-3.5 h-3.5" />
+              Especialista em Saúde
+            </div>
+            <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+              <Search className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Chat Area */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto custom-scrollbar flex justify-center"
+        >
+          <div className="w-full max-w-3xl px-4 py-8">
+            {!currentSessionId || currentSession?.messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center mt-20">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="mb-6 w-16 h-16 rounded-3xl bg-clinic-500 flex items-center justify-center shadow-lg shadow-clinic-200 overflow-hidden"
+                >
+                  <Image
+                    src="/assets/codex-logo-pixel.png"
+                    alt="Avicena"
+                    width={48}
+                    height={48}
+                    className="w-10 h-10"
+                  />
+                </motion.div>
+                <h1 className="text-3xl font-bold text-slate-800 mb-2">
+                  Com o que posso ajudar hoje, {displayName}?
+                </h1>
+                <p className="text-slate-500 mb-12 max-w-md">
+                  O Hipócrates é teu assistente para estudos de medicina,
+                  enfermagem e todas as áreas da saúde.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                    <motion.button
+                      key={idx}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: idx * 0.1 }}
+                      onClick={() => handleSend(prompt.description)}
+                      className="flex flex-col items-start p-5 text-left border border-slate-200 hover:border-clinic-500 hover:bg-clinic-50/10 rounded-2xl transition-all group"
+                    >
+                      <div className="mb-3 p-2 bg-slate-50 rounded-lg group-hover:bg-clinic-100 transition-colors">
+                        {prompt.icon}
+                      </div>
+                      <h4 className="font-semibold text-slate-800 mb-1">
+                        {prompt.title}
+                      </h4>
+                      <p className="text-sm text-slate-500 line-clamp-2">
+                        {prompt.description}
+                      </p>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8 pb-20">
+                {currentSession!.messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "flex gap-4",
+                      message.role === "assistant"
+                        ? "justify-start"
+                        : "justify-end"
+                    )}
+                  >
+                    {message.role === "assistant" && (
+                      <div className="w-8 h-8 rounded-lg bg-clinic-500 flex items-center justify-center shrink-0 mt-1 overflow-hidden">
+                        <Image
+                          src="/assets/codex-logo-pixel.png"
+                          alt="Hipócrates"
+                          width={24}
+                          height={24}
+                          className="w-5 h-5"
+                        />
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-4 py-3 leading-relaxed",
+                        message.role === "user"
+                          ? "bg-slate-100 text-slate-800"
+                          : "bg-white text-slate-800 border border-slate-100 shadow-sm"
+                      )}
+                    >
+                      {message.role === "assistant" ? (
+                        <div className="markdown-body">
+                          <Markdown>{message.content}</Markdown>
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex gap-4 justify-start">
+                    <div className="w-8 h-8 rounded-lg bg-clinic-500 flex items-center justify-center shrink-0 mt-1 overflow-hidden">
+                      <Image
+                        src="/assets/codex-logo-pixel.png"
+                        alt="Hipócrates"
+                        width={24}
+                        height={24}
+                        className="w-5 h-5"
+                      />
+                    </div>
+                    <div className="bg-clinic-50 text-clinic-600 rounded-2xl px-4 py-3 border border-clinic-100 italic text-sm animate-pulse">
+                      Auscultando o compêndio...
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="w-full bg-gradient-to-t from-white via-white to-transparent pb-8 pt-4 sticky bottom-0">
+          <div className="max-w-3xl mx-auto px-4">
+            <div className="relative bg-slate-100 rounded-[28px] p-2 pr-3 group focus-within:ring-2 focus-within:ring-clinic-500 transition-all">
+              <div className="flex items-end gap-2 px-2">
+                <button className="p-2 text-slate-400 hover:text-clinic-600 transition-colors mb-0.5">
+                  <Paperclip className="w-5 h-5" />
+                </button>
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend(input);
+                    }
+                  }}
+                  placeholder="Manda tua anamnese... Ex: /resumir capítulo 4 do Guyton"
+                  className="flex-1 bg-transparent border-none focus:ring-0 outline-none resize-none py-3 px-2 text-sm max-h-[200px] custom-scrollbar min-h-[44px]"
+                  style={{ height: "auto", maxHeight: "20vh" }}
+                  rows={1}
+                />
+                <button
+                  onClick={() => handleSend(input)}
+                  disabled={!input.trim() || isLoading}
+                  className={cn(
+                    "p-2.5 rounded-full mb-1 transition-all",
+                    input.trim()
+                      ? "bg-clinic-600 text-white shadow-md shadow-clinic-200"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  )}
+                >
+                  <ArrowUp className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <p className="text-[10px] text-center text-slate-400 mt-3 px-4">
+              O Avicena pode cometer erros. Material de estudo, não substitui
+              avaliação clínica presencial.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
