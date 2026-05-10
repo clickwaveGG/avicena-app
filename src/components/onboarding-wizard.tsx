@@ -326,16 +326,19 @@ function Step1({
         Como <span style={{ fontStyle: "italic", color: "var(--brand)" }}>o Hipócrates</span> deve te chamar?
       </Title>
       <Sub>
-        Tu vai ver esse nome em todo parecer, todo bom-dia, toda sabatina.
-        Pode ser teu primeiro nome só.
+        Esse nome aparece em todo parecer, todo bom-dia, toda sabatina.
+        Não precisa ser teu nome completo.
       </Sub>
 
       <FieldLabel>Como deve ser chamado · obrigatório</FieldLabel>
+      <FieldHint>
+        Geralmente teu primeiro nome ou apelido. É assim que tu vai ser tratado no chat e no Consultório.
+      </FieldHint>
       <Input
         autoFocus
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
-        placeholder="ex: Marina"
+        placeholder="Marina"
         maxLength={50}
       />
     </div>
@@ -372,7 +375,10 @@ function Step2({
         Isso muda o tom do Hipócrates, as sugestões e o que aparece no teu Consultório.
       </Sub>
 
-      <FieldLabel>Curso · obrigatório</FieldLabel>
+      <FieldLabel>Qual teu curso · obrigatório</FieldLabel>
+      <FieldHint>
+        Clica no card do curso que tu cursa. Se faz mais de um, escolhe o principal.
+      </FieldHint>
       <div
         style={{
           display: "grid",
@@ -408,9 +414,12 @@ function Step2({
         className="av-onb-row"
       >
         <div>
-          <FieldLabel>Período · obrigatório</FieldLabel>
+          <FieldLabel>Em que período tu está · obrigatório</FieldLabel>
+          <FieldHint>
+            O semestre que tu tá cursando agora. Internato ou residência? Tem opção pros dois.
+          </FieldHint>
           <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="">selecionar…</option>
+            <option value="">Escolhe teu período…</option>
             {PERIODS.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -419,11 +428,14 @@ function Step2({
           </Select>
         </div>
         <div>
-          <FieldLabel>Turma · obrigatório</FieldLabel>
+          <FieldLabel>Qual tua turma · obrigatório</FieldLabel>
+          <FieldHint>
+            Como tua turma aparece no diário/SIGAA. Pode ser código (M3-2026.1), nome (Hipócrates) ou número da sala. Se não sabe, pergunta no grupo.
+          </FieldHint>
           <Input
             value={cohort}
             onChange={(e) => setCohort(e.target.value)}
-            placeholder="ex: M3-2026.1"
+            placeholder="M3-2026.1 · MED23A · Turma 305"
             maxLength={30}
           />
         </div>
@@ -522,7 +534,23 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
         textTransform: "uppercase",
         letterSpacing: "0.10em",
         color: "var(--ink-muted)",
-        marginBottom: 8,
+        marginBottom: 6,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function FieldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 12.5,
+        color: "var(--ink-faint)",
+        lineHeight: 1.5,
+        marginBottom: 10,
+        maxWidth: 540,
       }}
     >
       {children}
