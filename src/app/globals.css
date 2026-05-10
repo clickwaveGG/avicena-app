@@ -2025,3 +2025,75 @@ a { color: var(--primary); }
   position: fixed;
   z-index: 1;
 }
+
+/* ============================================================================
+   Onboarding Wizard
+   ============================================================================ */
+.av .av-onb-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.av .av-onb-input:hover {
+  border-color: var(--border-strong);
+}
+.av .av-onb-input:focus {
+  outline: none;
+  border-color: var(--brand-soft);
+  box-shadow: 0 0 0 4px rgba(63, 166, 140, 0.10);
+}
+.av .av-onb-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.av .av-onb-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  color: var(--ink-muted);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 140ms ease;
+}
+.av .av-onb-chip:hover {
+  border-color: var(--brand-soft);
+  background: var(--brand-soft-bg);
+  color: var(--ink);
+}
+.av .av-onb-chip.is-active {
+  background: var(--brand-soft-bg);
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+  box-shadow: var(--av-shadow-sm);
+}
+
+.av .av-spin {
+  animation: av-spin 0.9s linear infinite;
+}
+@keyframes av-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .av .av-onb-card {
+    padding: 28px 22px 24px !important;
+  }
+  .av .av-onb-row {
+    grid-template-columns: 1fr !important;
+  }
+}

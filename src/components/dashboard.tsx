@@ -28,6 +28,23 @@ import { AvicenaMark, CodexCover } from "@/components/avicena";
 type Profile = {
   display_name: string | null;
   tier: string | null;
+  course?: string | null;
+  period?: string | null;
+  cohort?: string | null;
+  academy?: string | null;
+  pronouns?: string | null;
+  onboarded_at?: string | null;
+};
+
+const COURSE_LABELS: Record<string, string> = {
+  medicina: "Medicina",
+  enfermagem: "Enfermagem",
+  fisioterapia: "Fisioterapia",
+  farmacia: "Farmácia",
+  odontologia: "Odontologia",
+  nutricao: "Nutrição",
+  biomedicina: "Biomedicina",
+  outro: "Outro",
 };
 
 function getGreeting() {
@@ -192,6 +209,13 @@ export function Dashboard({
     profile?.display_name?.trim() || email?.split("@")[0] || "estudante";
   const tier = profile?.tier ?? "estagiario";
   const initial = displayName.slice(0, 1).toUpperCase();
+  const academy = profile?.academy?.trim() || "Academia";
+  const courseLabel =
+    COURSE_LABELS[profile?.course ?? ""] ?? "Curso";
+  const cohort = profile?.cohort?.trim() || "";
+  const academyLine = [academy, courseLabel, cohort]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="av" style={{ minHeight: "100vh", display: "flex" }}>
@@ -241,7 +265,7 @@ export function Dashboard({
                 fontWeight: 600,
               }}
             >
-              UNIFAC · Medicina · M3
+              {academyLine}
             </div>
           </div>
           <button
