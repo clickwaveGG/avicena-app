@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ensureOnboardingSchema } from "@/lib/ensure-schema";
 
 export type OnboardingPayload = {
   displayName: string;
@@ -36,6 +37,9 @@ export async function completeOnboarding(
   if (!user) {
     return { ok: false, error: "Sessão expirou. Faz login de novo." };
   }
+
+  // Garante que as colunas existem antes do UPDATE
+  await ensureOnboardingSchema();
 
   const displayName = payload.displayName.trim();
   const course = payload.course.trim().toLowerCase();

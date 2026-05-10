@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ensureOnboardingSchema } from "@/lib/ensure-schema";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 export default async function BemVindoPage() {
@@ -12,9 +13,12 @@ export default async function BemVindoPage() {
     redirect("/");
   }
 
+  // Garante que as colunas de onboarding existem antes do wizard tentar UPDATE
+  await ensureOnboardingSchema();
+
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("display_name, onboarded_at")
+    .select("*")
     .eq("id", user.id)
     .single();
 
@@ -24,7 +28,7 @@ export default async function BemVindoPage() {
   }
 
   const defaultName =
-    profile?.display_name?.trim() ||
+    (profile?.display_name as string | null)?.trim() ||
     user.email?.split("@")[0] ||
     "";
 
