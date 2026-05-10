@@ -1,28 +1,27 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import {
   Plus,
-  MessageSquare,
   Search,
-  User,
   Stethoscope,
   BookOpen,
   Dna,
   Heart,
-  MoreVertical,
-  Sidebar as SidebarIcon,
-  Sparkles,
-  ArrowUp,
+  Menu,
   Paperclip,
   FileText,
   X,
+  ArrowRight,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
-import { cn } from "@/lib/utils";
 import { signOut } from "@/app/actions/auth";
+import {
+  AvicenaMark,
+  HipAvatar,
+  CodexCover,
+  BtnSoft,
+} from "@/components/avicena";
 
 type Profile = {
   display_name: string | null;
@@ -84,28 +83,40 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-const SUGGESTED_PROMPTS = [
+const QUICK_CARDS = [
   {
-    title: "Análise de Caso",
-    description: "Ajude-me a analisar um estudo de caso clínico de neurologia.",
-    icon: <Stethoscope className="w-5 h-5 text-clinic-600" />,
+    cmd: "/caso",
+    title: "Análise de caso",
+    desc: "Estudo de caso clínico de neurologia",
+    icon: Stethoscope,
   },
   {
+    cmd: "/explicar",
     title: "Fisiologia",
-    description: "Explique a cascata de coagulação sanguineo de forma clara.",
-    icon: <Dna className="w-5 h-5 text-clinic-600" />,
+    desc: "Cascata de coagulação sanguínea",
+    icon: Dna,
   },
   {
+    cmd: "/dose",
     title: "Farmacologia",
-    description: "Quais as principais interações medicamentosas da varfarina?",
-    icon: <BookOpen className="w-5 h-5 text-clinic-600" />,
+    desc: "Interações medicamentosas da varfarina",
+    icon: BookOpen,
   },
   {
+    cmd: "/resumir",
     title: "Anatomia",
-    description: "Revise a anatomia do mediastino superior.",
-    icon: <Heart className="w-5 h-5 text-clinic-600" />,
+    desc: "Anatomia do mediastino superior",
+    icon: Heart,
   },
 ];
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 5) return "boa madrugada";
+  if (h < 12) return "bom dia";
+  if (h < 18) return "boa tarde";
+  return "boa noite";
+}
 
 export function Workspace({
   email,
@@ -123,10 +134,12 @@ export function Workspace({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
   const displayName =
     profile?.display_name?.trim() || email?.split("@")[0] || "estudante";
   const tier = profile?.tier ?? "estagiario";
+  const initial = displayName.slice(0, 1).toUpperCase();
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
 
@@ -136,10 +149,15 @@ export function Workspace({
     }
   }, [currentSession?.messages, isLoading]);
 
+  function autoResize(t: HTMLTextAreaElement) {
+    t.style.height = "auto";
+    t.style.height = Math.min(t.scrollHeight, 200) + "px";
+  }
+
   const createNewSession = () => {
     const newSession: ChatSession = {
       id: Math.random().toString(36).substring(7),
-      title: "Nova Conversa",
+      title: "Nova anamnese",
       messages: [],
       createdAt: Date.now(),
     };
@@ -186,6 +204,10 @@ export function Workspace({
 
     setSessions([...updatedSessions]);
     setInput("");
+    if (taRef.current) {
+      taRef.current.value = "";
+      autoResize(taRef.current);
+    }
     setIsLoading(true);
 
     try {
@@ -245,336 +267,615 @@ export function Workspace({
   }
 
   return (
-    <div className="flex h-screen bg-white">
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {!isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 z-20 md:hidden"
-            onClick={() => setIsSidebarOpen(true)}
-          />
-        )}
-      </AnimatePresence>
-
+    <div
+      className="av"
+      style={{ height: "100vh", display: "flex", flexDirection: "row" }}
+    >
       {/* Sidebar */}
-      <div
-        className={cn(
-          "fixed md:relative flex flex-col h-full bg-[#f9f9f9] border-r border-slate-100 transition-all duration-300 z-30",
-          isSidebarOpen
-            ? "w-[260px] translate-x-0"
-            : "-translate-x-full md:w-0 md:translate-x-0 md:hidden"
-        )}
+      <aside
+        style={{
+          width: isSidebarOpen ? 260 : 0,
+          flexShrink: 0,
+          borderRight: isSidebarOpen ? "1px solid var(--border)" : "none",
+          background: "var(--bg-elev-1)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          transition: "width 220ms ease-out",
+        }}
+        className="ws-sidebar-v2"
       >
-        <div className="p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 px-2 py-1">
-            <Image
-              src="/assets/codex-logo-pixel.png"
-              alt="Avicena"
-              width={32}
-              height={32}
-              priority
-              className="rounded-lg"
-            />
-            <span className="font-bold text-slate-800 tracking-tight">
-              Avicena
-            </span>
-          </div>
+        <div
+          style={{
+            padding: "18px 16px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <AvicenaMark size={26} />
+          <span className="serif" style={{ fontSize: 18, fontWeight: 600 }}>
+            Avicena
+          </span>
           <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors"
+            onClick={() => setIsSidebarOpen(false)}
+            style={{ marginLeft: "auto", color: "var(--ink-faint)", padding: 4 }}
+            title="Fechar sidebar"
+            aria-label="Fechar sidebar"
           >
-            <SidebarIcon className="w-5 h-5" />
+            <Menu size={16} />
           </button>
         </div>
 
-        <div className="px-3 pb-2">
+        <div style={{ padding: "14px 14px 8px" }}>
           <button
             onClick={createNewSession}
-            className="w-full flex items-center gap-2 p-3 text-sm font-medium text-slate-700 hover:bg-slate-200/50 rounded-xl transition-all border border-transparent hover:border-slate-200"
+            className="av-btn-soft"
+            style={{ width: "100%", justifyContent: "center" }}
           >
-            <Plus className="w-4 h-4" />
-            Nova Conversa
+            <Plus size={14} /> Nova anamnese
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 custom-scrollbar">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-2">
-            Recentes
-          </div>
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              onClick={() => setCurrentSessionId(session.id)}
-              className={cn(
-                "w-full flex items-center gap-3 p-3 text-sm rounded-xl transition-all text-left",
-                currentSessionId === session.id
-                  ? "bg-clinic-100 text-clinic-900 font-medium"
-                  : "text-slate-600 hover:bg-slate-200/50 group"
-              )}
+        <div
+          style={{
+            padding: "16px 18px 6px",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.10em",
+            textTransform: "uppercase",
+            color: "var(--ink-muted)",
+          }}
+        >
+          Prontuário
+        </div>
+        <div
+          className="av-scroll"
+          style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px" }}
+        >
+          {sessions.length === 0 ? (
+            <div
+              style={{
+                padding: "12px 14px",
+                fontSize: 12.5,
+                fontStyle: "italic",
+                color: "var(--ink-faint)",
+              }}
             >
-              <MessageSquare
-                className={cn(
-                  "w-4 h-4 shrink-0",
-                  currentSessionId === session.id
-                    ? "text-clinic-600"
-                    : "text-slate-400"
-                )}
-              />
-              <span className="truncate flex-1">{session.title}</span>
-              <MoreVertical className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
-            </button>
-          ))}
-
-          {sessions.length === 0 && (
-            <div className="px-3 py-4 text-sm text-slate-400 italic">
-              Nenhuma conversa ainda
+              Nenhuma anamnese ainda
             </div>
+          ) : (
+            sessions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setCurrentSessionId(s.id)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  textAlign: "left",
+                  background:
+                    currentSessionId === s.id ? "var(--bg-elev-2)" : "transparent",
+                  color:
+                    currentSessionId === s.id ? "var(--ink)" : "var(--ink-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 2,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {s.title}
+                </span>
+              </button>
+            ))
           )}
         </div>
 
-        <div className="mt-auto p-3 border-t border-slate-100 space-y-2">
-          <div className="flex items-center gap-3 p-2 rounded-xl text-slate-600">
-            <div className="w-8 h-8 rounded-full bg-clinic-50 flex items-center justify-center">
-              <User className="w-4 h-4 text-clinic-600" />
+        <div
+          style={{
+            padding: "12px 14px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "var(--accent-soft)",
+              color: "#6F5417",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            {initial}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {displayName}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{displayName}</p>
-              <p className="text-[10px] text-slate-400 capitalize">{tier}</p>
+            <div
+              className="mono"
+              style={{ fontSize: 10.5, color: "var(--ink-faint)" }}
+            >
+              {tier}
             </div>
           </div>
           <form action={signOut}>
             <button
               type="submit"
-              className="w-full text-xs text-slate-500 hover:text-slate-800 py-1.5 rounded-lg hover:bg-slate-200/50 transition-colors"
+              style={{
+                fontSize: 12,
+                color: "var(--ink-muted)",
+                padding: "4px 8px",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+              }}
             >
               Sair
             </button>
           </form>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
-        {/* Header */}
-        <header className="h-16 flex items-center justify-between px-4 sticky top-0 bg-white/80 backdrop-blur-md z-10">
-          <div className="flex items-center gap-2">
+      {/* Main */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--bg)",
+          minWidth: 0,
+          position: "relative",
+        }}
+      >
+        {/* Top bar */}
+        <header
+          style={{
+            padding: "14px 24px",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--bg-elev-1)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+                style={{ padding: 6, color: "var(--ink-muted)" }}
+                title="Abrir sidebar"
+                aria-label="Abrir sidebar"
               >
-                <SidebarIcon className="w-5 h-5" />
+                <Menu size={18} />
               </button>
             )}
-            <h2 className="font-semibold text-slate-700 md:block hidden">
-              {currentSession ? currentSession.title : "Início"}
-            </h2>
+            <span
+              className="serif"
+              style={{ fontSize: 17, fontWeight: 600 }}
+            >
+              {currentSession ? currentSession.title : "Consultório"}
+            </span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-clinic-50 text-clinic-700 rounded-full text-xs font-medium border border-clinic-100">
-              <Sparkles className="w-3.5 h-3.5" />
-              Especialista em Saúde
-            </div>
-            <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-              <Search className="w-5 h-5" />
-            </button>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--ink-muted)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+            className="av-tabular"
+          >
+            <span className="av-hide-mobile" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Search size={14} /> Buscar
+            </span>
+            <span style={{ color: "var(--ink-faint)" }}>
+              <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+                {currentSession?.messages.filter((m) => m.role === "user").length ?? 0}
+              </span>
+              /50 hoje
+            </span>
           </div>
         </header>
 
-        {/* Chat Area */}
+        {/* Conversation area */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto custom-scrollbar flex justify-center"
+          className="av-scroll"
+          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}
         >
-          <div className="w-full max-w-3xl px-4 py-8">
-            {!currentSessionId || currentSession?.messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center mt-20">
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="mb-6 w-16 h-16 rounded-3xl bg-clinic-500 flex items-center justify-center shadow-lg shadow-clinic-200 overflow-hidden"
-                >
-                  <Image
-                    src="/assets/codex-logo-pixel.png"
-                    alt="Avicena"
-                    width={48}
-                    height={48}
-                    className="w-10 h-10"
-                  />
-                </motion.div>
-                <h1 className="text-3xl font-bold text-slate-800 mb-2">
-                  Com o que posso ajudar hoje, {displayName}?
-                </h1>
-                <p className="text-slate-500 mb-12 max-w-md">
-                  O Hipócrates é teu assistente para estudos de medicina,
-                  enfermagem e todas as áreas da saúde.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
-                    <motion.button
-                      key={idx}
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: idx * 0.1 }}
-                      onClick={() => handleSend(prompt.description)}
-                      className="flex flex-col items-start p-5 text-left border border-slate-200 hover:border-clinic-500 hover:bg-clinic-50/10 rounded-2xl transition-all group"
-                    >
-                      <div className="mb-3 p-2 bg-slate-50 rounded-lg group-hover:bg-clinic-100 transition-colors">
-                        {prompt.icon}
-                      </div>
-                      <h4 className="font-semibold text-slate-800 mb-1">
-                        {prompt.title}
-                      </h4>
-                      <p className="text-sm text-slate-500 line-clamp-2">
-                        {prompt.description}
-                      </p>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-8 pb-20">
-                {currentSession!.messages.map((message) => (
+          {!currentSession || currentSession.messages.length === 0 ? (
+            <EmptyState
+              displayName={displayName}
+              greeting={getGreeting()}
+              onPick={(c) => handleSend(c)}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 760,
+                margin: "0 auto",
+                padding: "28px 24px 12px",
+              }}
+            >
+              {currentSession.messages.map((m) =>
+                m.role === "user" ? (
                   <div
-                    key={message.id}
-                    className={cn(
-                      "flex gap-4",
-                      message.role === "assistant"
-                        ? "justify-start"
-                        : "justify-end"
-                    )}
+                    key={m.id}
+                    style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}
                   >
-                    {message.role === "assistant" && (
-                      <div className="w-8 h-8 rounded-lg bg-clinic-500 flex items-center justify-center shrink-0 mt-1 overflow-hidden">
-                        <Image
-                          src="/assets/codex-logo-pixel.png"
-                          alt="Hipócrates"
-                          width={24}
-                          height={24}
-                          className="w-5 h-5"
-                        />
-                      </div>
-                    )}
                     <div
-                      className={cn(
-                        "max-w-[85%] rounded-2xl px-4 py-3 leading-relaxed",
-                        message.role === "user"
-                          ? "bg-slate-100 text-slate-800"
-                          : "bg-white text-slate-800 border border-slate-100 shadow-sm"
-                      )}
+                      style={{
+                        maxWidth: "78%",
+                        background: "var(--brand-soft-bg)",
+                        color: "var(--ink)",
+                        padding: "12px 16px",
+                        borderRadius: "18px 18px 6px 18px",
+                        fontSize: 15,
+                        lineHeight: 1.55,
+                        whiteSpace: "pre-wrap",
+                      }}
                     >
-                      {message.role === "assistant" ? (
+                      {m.content}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={m.id}
+                    style={{ display: "flex", gap: 12, marginBottom: 18, alignItems: "flex-start" }}
+                  >
+                    <HipAvatar />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          background: "var(--bg-elev-1)",
+                          border: "1px solid var(--border)",
+                          padding: "14px 18px",
+                          borderRadius: "6px 18px 18px 18px",
+                          fontSize: 15,
+                          lineHeight: 1.6,
+                          color: "var(--ink)",
+                        }}
+                      >
                         <div className="markdown-body">
-                          <Markdown>{message.content}</Markdown>
+                          <Markdown>{m.content}</Markdown>
                         </div>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap">
-                          {message.content}
-                        </p>
-                      )}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: 11,
+                          color: "var(--ink-faint)",
+                          fontStyle: "italic",
+                          paddingLeft: 4,
+                        }}
+                      >
+                        Material de estudo.
+                      </div>
                     </div>
                   </div>
-                ))}
-                {isLoading && (
-                  <div className="flex gap-4 justify-start">
-                    <div className="w-8 h-8 rounded-lg bg-clinic-500 flex items-center justify-center shrink-0 mt-1 overflow-hidden">
-                      <Image
-                        src="/assets/codex-logo-pixel.png"
-                        alt="Hipócrates"
-                        width={24}
-                        height={24}
-                        className="w-5 h-5"
-                      />
-                    </div>
-                    <div className="bg-clinic-50 text-clinic-600 rounded-2xl px-4 py-3 border border-clinic-100 italic text-sm animate-pulse">
-                      Auscultando o compêndio...
-                    </div>
+                )
+              )}
+
+              {isLoading && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    marginBottom: 18,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <HipAvatar pulsing />
+                  <div
+                    style={{
+                      background: "var(--bg-elev-1)",
+                      border: "1px solid var(--border)",
+                      padding: "14px 18px",
+                      borderRadius: "6px 18px 18px 18px",
+                      fontSize: 15,
+                      color: "var(--ink-muted)",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Auscultando o compêndio<span className="av-cursor"></span>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Input Area */}
-        <div className="w-full bg-gradient-to-t from-white via-white to-transparent pb-8 pt-4 sticky bottom-0">
-          <div className="max-w-3xl mx-auto px-4">
+        {/* Composer */}
+        <div
+          style={{
+            padding: "14px 24px 22px",
+            background: "linear-gradient(180deg, transparent, var(--bg) 30%)",
+          }}
+        >
+          <div style={{ maxWidth: 760, margin: "0 auto" }}>
             <input
               ref={fileInputRef}
               type="file"
               accept="application/pdf"
-              className="hidden"
+              style={{ display: "none" }}
               onChange={handleFilePick}
             />
             {attachment && (
-              <div className="mb-2 flex items-center gap-2 bg-clinic-50 border border-clinic-100 rounded-2xl px-3 py-2 max-w-fit">
-                <FileText className="w-4 h-4 text-clinic-600 shrink-0" />
-                <span className="text-sm text-clinic-900 truncate max-w-[260px]">
+              <div
+                style={{
+                  marginBottom: 8,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "var(--accent-bg)",
+                  border: "1px solid var(--accent)",
+                  borderRadius: 12,
+                  padding: "6px 10px",
+                  maxWidth: "100%",
+                }}
+              >
+                <FileText size={14} style={{ color: "#6F5417", flexShrink: 0 }} />
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: "var(--ink)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: 240,
+                  }}
+                >
                   {attachment.name}
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>
                   {(attachment.size / 1024 / 1024).toFixed(1)}MB
                 </span>
                 <button
                   onClick={() => setAttachment(null)}
-                  className="p-1 hover:bg-clinic-100 rounded-full text-clinic-700 transition-colors"
+                  style={{ padding: 2, color: "var(--ink-muted)" }}
+                  aria-label="Remover anexo"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X size={14} />
                 </button>
               </div>
             )}
             {uploadError && (
-              <div className="mb-2 text-xs text-red-600">{uploadError}</div>
+              <div style={{ marginBottom: 6, fontSize: 12, color: "var(--alert)" }}>
+                {uploadError}
+              </div>
             )}
-            <div className="relative bg-slate-100 rounded-[28px] p-2 pr-3 group focus-within:ring-2 focus-within:ring-clinic-500 transition-all">
-              <div className="flex items-end gap-2 px-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 text-slate-400 hover:text-clinic-600 transition-colors mb-0.5"
-                  title="Anexar códice (PDF)"
+            <div className="av-composer">
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <span
+                  className="mono"
+                  style={{ color: "var(--accent)", fontSize: 15, fontWeight: 600, paddingTop: 6 }}
                 >
-                  <Paperclip className="w-5 h-5" />
-                </button>
+                  /
+                </span>
                 <textarea
+                  ref={taRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    autoResize(e.target);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSend(input);
                     }
                   }}
-                  placeholder="Manda tua anamnese... Ex: /resumir capítulo 4 do Guyton"
-                  className="flex-1 bg-transparent border-none focus:ring-0 outline-none resize-none py-3 px-2 text-sm max-h-[200px] custom-scrollbar min-h-[44px]"
-                  style={{ height: "auto", maxHeight: "20vh" }}
+                  placeholder="Pergunta pro Hipócrates sobre teu material…"
                   rows={1}
                 />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
                 <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 12,
+                    color: "var(--ink-muted)",
+                  }}
+                  title="Anexar códice (PDF até 32MB)"
+                  type="button"
+                >
+                  <Paperclip size={14} /> anexar códice
+                </button>
+                <div style={{ flex: 1 }} />
+                <BtnSoft
                   onClick={() => handleSend(input)}
                   disabled={!input.trim() || isLoading}
-                  className={cn(
-                    "p-2.5 rounded-full mb-1 transition-all",
-                    input.trim()
-                      ? "bg-clinic-600 text-white shadow-md shadow-clinic-200"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                  )}
+                  iconRight={<ArrowRight size={14} />}
                 >
-                  <ArrowUp className="w-5 h-5" />
-                </button>
+                  Auscultar
+                </BtnSoft>
               </div>
             </div>
-            <p className="text-[10px] text-center text-slate-400 mt-3 px-4">
-              O Avicena pode cometer erros. Material de estudo, não substitui
-              avaliação clínica presencial.
-            </p>
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: "var(--ink-faint)",
+                fontStyle: "italic",
+                textAlign: "center",
+              }}
+            >
+              Material de estudo. Não substitui avaliação clínica presencial.
+            </div>
           </div>
         </div>
+      </main>
+
+    </div>
+  );
+}
+
+function EmptyState({
+  displayName,
+  greeting,
+  onPick,
+}: {
+  displayName: string;
+  greeting: string;
+  onPick: (cmd: string) => void;
+}) {
+  const codices = [
+    { title: "Robbins Patologia", category: "Patologia" },
+    { title: "Porto Semiologia", category: "Cardio" },
+    { title: "Goodman & Gilman", category: "Farma" },
+  ];
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "48px 24px",
+        textAlign: "center",
+        overflow: "hidden",
+      }}
+    >
+      <div className="av-aurora" style={{ inset: 0 }} />
+
+      <div style={{ position: "relative", zIndex: 2, maxWidth: 720, width: "100%" }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 4 }}>
+          {greeting}, {displayName}
+        </div>
+        <h1
+          className="serif"
+          style={{
+            fontSize: "clamp(26px, 4vw, 36px)",
+            fontWeight: 600,
+            letterSpacing: "-0.015em",
+            marginBottom: 8,
+          }}
+        >
+          Como tá o estudo de{" "}
+          <span style={{ fontStyle: "italic", color: "var(--brand)" }}>Cardio</span>?
+        </h1>
+        <p
+          style={{
+            fontSize: 15,
+            color: "var(--ink-muted)",
+            marginBottom: 28,
+            maxWidth: 520,
+            margin: "0 auto 28px",
+          }}
+        >
+          Continua de onde parou no Porto, ou bora um códice novo?
+        </p>
+
+        <div className="av-codice-row">
+          {codices.map((c) => (
+            <CodexCover
+              key={c.title}
+              title={c.title}
+              category={c.category}
+              size="sm"
+            />
+          ))}
+        </div>
+
+        <div className="av-quick-grid">
+          {QUICK_CARDS.map((q) => {
+            const I = q.icon;
+            return (
+              <button
+                key={q.cmd}
+                onClick={() => onPick(`${q.cmd} ${q.desc.toLowerCase()}`)}
+                type="button"
+                style={{
+                  padding: "14px 16px",
+                  background: "var(--bg-elev-1)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  transition: "all 160ms",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--brand-soft)";
+                  e.currentTarget.style.background = "var(--brand-soft-bg)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.background = "var(--bg-elev-1)";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}
+                >
+                  <I size={16} style={{ color: "var(--brand)" }} />
+                  <span
+                    className="mono"
+                    style={{ fontSize: 11, color: "var(--accent)" }}
+                  >
+                    {q.cmd}
+                  </span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+                  {q.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--ink-muted)",
+                    marginTop: 2,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {q.desc}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
     </div>
   );
 }
