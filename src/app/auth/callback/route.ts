@@ -21,12 +21,22 @@ p { font-size: 14px; color:#5A6B62; margin:0; }
   <p>${message === "ok" ? "Pode fechar essa janela." : safeReason || "Tenta de novo."}</p>
 </div>
 <script>
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(${JSON.stringify(`avicena-auth-${message}`)}, window.location.origin);
-    }
-  } catch (_) {}
-  setTimeout(function(){ try { window.close(); } catch(_){} }, 400);
+  (function () {
+    var msg = ${JSON.stringify(`avicena-auth-${message}`)};
+    // BroadcastChannel sobrevive ao corte de window.opener feito pelo COOP do Google
+    try {
+      var bc = new BroadcastChannel("avicena-auth");
+      bc.postMessage(msg);
+      bc.close();
+    } catch (_) {}
+    // Fallback: postMessage direto (mobile / navegadores sem BroadcastChannel)
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(msg, window.location.origin);
+      }
+    } catch (_) {}
+    setTimeout(function(){ try { window.close(); } catch(_){} }, 400);
+  })();
 </script>
 </body>
 </html>`;

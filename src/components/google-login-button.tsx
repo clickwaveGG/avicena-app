@@ -19,14 +19,27 @@ export function GoogleLoginButton({ className, children }: Props) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    function onMessage(e: MessageEvent) {
-      if (e.origin !== window.location.origin) return;
-      if (e.data === "avicena-auth-ok") {
+    function handleResult(data: unknown) {
+      if (data === "avicena-auth-ok") {
         window.location.reload();
       }
     }
+    // Canal principal: funciona mesmo com o COOP do Google cortando window.opener
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("avicena-auth");
+      bc.onmessage = (e) => handleResult(e.data);
+    } catch {}
+    // Fallback: postMessage direto da janela do callback
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      handleResult(e.data);
+    }
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      bc?.close();
+    };
   }, []);
 
   async function handle() {
