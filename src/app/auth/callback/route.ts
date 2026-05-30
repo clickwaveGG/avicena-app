@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 function popupHtml(message: "ok" | "fail", reason?: string) {
@@ -35,7 +36,10 @@ p { font-size: 14px; color:#5A6B62; margin:0; }
         window.opener.postMessage(msg, window.location.origin);
       }
     } catch (_) {}
-    setTimeout(function(){ try { window.close(); } catch(_){} }, 400);
+    // Fecha sozinho so no sucesso; em falha deixa aberto pra ler o motivo
+    if (msg === "avicena-auth-ok") {
+      setTimeout(function(){ try { window.close(); } catch(_){} }, 400);
+    }
   })();
 </script>
 </body>
@@ -59,6 +63,24 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    // DIAGNOSTICO TEMPORARIO — remover apos resolver o login
+    const all = (await cookies()).getAll();
+    const cookieNames = all.map((c) => c.name);
+    const hasVerifier = cookieNames.some((n) => n.includes("code-verifier"));
+    console.error(
+      "[auth/callback] exchange FALHOU:",
+      JSON.stringify({
+        message: error.message,
+        status: (error as { status?: number }).status,
+        code: (error as { code?: string }).code,
+        isPopup,
+        hasCodeVerifierCookie: hasVerifier,
+        cookieNames,
+      })
+    );
+  }
 
   if (isPopup) {
     return new Response(popupHtml(error ? "fail" : "ok", error?.message), {
