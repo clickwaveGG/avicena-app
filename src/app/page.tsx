@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ensureOnboardingSchema } from "@/lib/ensure-schema";
 import { Landing } from "@/components/landing";
 import { Dashboard } from "@/components/dashboard";
 
@@ -13,9 +12,6 @@ export default async function Home() {
   if (!user) {
     return <Landing />;
   }
-
-  // Garante que as colunas de onboarding existem (idempotente, cacheado por instance)
-  await ensureOnboardingSchema();
 
   const { data: profile } = await supabase
     .from("user_profiles")
